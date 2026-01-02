@@ -4,129 +4,276 @@
   <meta charset="UTF-8">
   <title>سامانه آموزش مجازی</title>
   <style>
-    body { font-family: Tahoma, sans-serif; margin: 0; background: #f5f5f5; direction: rtl; }
+    body { font-family: Tahoma; background: #f5f5f5; direction: rtl; margin: 0; }
     header { background: #2c3e50; color: white; padding: 15px; text-align: center; }
-    nav { background: #34495e; padding: 10px; text-align: center; }
-    nav button { margin: 5px; padding: 10px 15px; border: none; background: #e67e22; color: white; border-radius: 5px; cursor: pointer; }
-    nav button:hover { background: #d35400; }
+    .hidden { display: none; }
+    .box { background: white; padding: 20px; border-radius: 8px; margin: 40px auto; width: 420px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-align:center; }
+    input, select { padding: 10px; margin: 10px; width: 90%; }
+    button { padding: 8px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+    button.green { background: #27ae60; color: white; }
+    button.orange { background: #e67e22; color: white; }
     .container { margin: 20px; }
-    .course { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .section { margin-top: 10px; }
-    .item { border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; }
-    .hidden { background: #f8d7da; color: #721c24; }
-    input { padding: 8px; margin: 5px; width: 70%; }
-    button.small { padding: 5px 10px; font-size: 12px; margin: 2px; }
+    .course { background: #ecf0f1; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .item { border: 1px solid #ddd; padding: 5px; margin: 5px 0; border-radius: 5px; }
+    .hiddenItem { background: #f8d7da; color: #721c24; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .row input { flex: 1; min-width: 160px; }
   </style>
  <link type="text/css" rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
   <header>
-    <h1>سامانه آموزش مجازی مدارس</h1>
-    <p>مدیریت درس‌ها، جزوه‌ها، آزمون‌ها و دانش‌آموزان</p>
+    <h1>سامانه آموزش مجازی</h1>
   </header>
 
-  <div class="container">
-    <h2>ایجاد درس جدید</h2>
-    <input id="courseName" placeholder="نام درس">
-    <button onclick="addCourse()">➕ افزودن درس</button>
+  <!-- صفحه لاگین -->
+  <div id="loginPage" class="box">
+    <h2>ورود</h2>
+    <input id="username" placeholder="نام کاربری">
+    <input id="password" type="password" placeholder="رمز عبور">
+    <select id="role">
+      <option value="student">👩‍🎓 دانش‌آموز</option>
+      <option value="teacher">👨‍🏫 معلم</option>
+    </select><br>
+    <button id="loginBtn" class="green">ورود</button>
+    <div style="margin-top:10px; font-size:12px; color:#555;">
+      معلم: نام کاربری <b>teacher</b> ، رمز <b>1234</b> — دانش‌آموز: نام کاربری <b>student</b> ، رمز <b>abcd</b>
+    </div>
+  </div>
+
+  <!-- داشبورد معلم -->
+  <div id="teacherPage" class="container hidden">
+    <h2>داشبورد معلم</h2>
+    <div class="row">
+      <input id="courseName" placeholder="نام درس">
+      <button id="addCourseBtn" class="orange">➕ افزودن درس</button>
+      <button id="logoutTeacherBtn">🚪 خروج</button>
+    </div>
     <div id="courseList"></div>
   </div>
 
+  <!-- داشبورد دانش‌آموز -->
+  <div id="studentPage" class="container hidden">
+    <h2>داشبورد دانش‌آموز</h2>
+    <div class="row">
+      <button id="refreshStudentBtn">🔄 تازه‌سازی</button>
+      <button id="logoutStudentBtn">🚪 خروج</button>
+    </div>
+    <div id="studentCourses"></div>
+  </div>
+
   <script>
-    let courses = [];
+    // ذخیره/خواندن داده‌ها از LocalStorage
+    const STORAGE_KEY = "lms_courses";
+    const loadCourses = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const saveCourses = (data) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
-    function addCourse() {
-      let name = document.getElementById("courseName").value;
-      if(name) {
-        let course = { name: name, notes: [], exams: [], students: [] };
-        courses.push(course);
+    let courses = loadCourses();
+    let currentUser = null;
+
+    // ورود
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      const user = document.getElementById("username").value.trim();
+      const pass = document.getElementById("password").value.trim();
+      const role = document.getElementById("role").value;
+
+      if(role === "teacher" && user === "teacher" && pass === "1234") {
+        currentUser = { role: "teacher", name: user };
+        showPage("teacher");
         renderCourses();
-        document.getElementById("courseName").value = "";
-      }
-    }
-
-    function addNote(index) {
-      let text = prompt("متن جزوه را وارد کنید:");
-      if(text) {
-        courses[index].notes.push({ text: text, visible: true });
-        renderCourses();
-      }
-    }
-
-    function addExam(index) {
-      let text = prompt("عنوان آزمون را وارد کنید:");
-      if(text) {
-        courses[index].exams.push({ text: text, visible: true, grades: {} });
-        renderCourses();
-      }
-    }
-
-    function addStudent(index) {
-      let name = prompt("نام دانش‌آموز را وارد کنید:");
-      if(name) {
-        courses[index].students.push(name);
-        renderCourses();
-      }
-    }
-
-    function toggleVisibility(type, courseIndex, itemIndex) {
-      let item = (type === "note") ? courses[courseIndex].notes[itemIndex] : courses[courseIndex].exams[itemIndex];
-      item.visible = !item.visible;
-      renderCourses();
-    }
-
-    function gradeStudent(courseIndex, examIndex) {
-      let exam = courses[courseIndex].exams[examIndex];
-      let student = prompt("نام دانش‌آموز برای ثبت نمره:");
-      if(student && courses[courseIndex].students.includes(student)) {
-        let grade = prompt("نمره‌ی " + student + " را وارد کنید:");
-        exam.grades[student] = grade;
-        renderCourses();
+      } else if(role === "student" && user === "student" && pass === "abcd") {
+        currentUser = { role: "student", name: user };
+        showPage("student");
+        renderStudentView();
       } else {
-        alert("این دانش‌آموز در این درس ثبت نشده است.");
+        alert("نام کاربری یا رمز عبور اشتباه است!");
       }
+    });
+
+    // خروج
+    document.getElementById("logoutTeacherBtn").addEventListener("click", logout);
+    document.getElementById("logoutStudentBtn").addEventListener("click", logout);
+    function logout() {
+      currentUser = null;
+      showPage("login");
     }
 
+    // نمایش صفحات
+    function showPage(which) {
+      document.getElementById("loginPage").classList.add("hidden");
+      document.getElementById("teacherPage").classList.add("hidden");
+      document.getElementById("studentPage").classList.add("hidden");
+      if(which === "teacher") document.getElementById("teacherPage").classList.remove("hidden");
+      else if(which === "student") document.getElementById("studentPage").classList.remove("hidden");
+      else document.getElementById("loginPage").classList.remove("hidden");
+    }
+
+    // معلم: افزودن درس
+    document.getElementById("addCourseBtn").addEventListener("click", () => {
+      const name = document.getElementById("courseName").value.trim();
+      if(!name) return;
+      courses.push({ name, notes: [], exams: [] });
+      saveCourses(courses);
+      document.getElementById("courseName").value = "";
+      renderCourses();
+    });
+
+    // معلم: رندر درس‌ها
     function renderCourses() {
-      let container = document.getElementById("courseList");
+      const container = document.getElementById("courseList");
       container.innerHTML = "";
-      courses.forEach((course, i) => {
-        let div = document.createElement("div");
+      courses.forEach((c, i) => {
+        const div = document.createElement("div");
         div.className = "course";
-        div.innerHTML = `<h3>📘 ${course.name}</h3>
-          <button class="small" onclick="addNote(${i})">➕ افزودن جزوه</button>
-          <button class="small" onclick="addExam(${i})">📝 افزودن آزمون</button>
-          <button class="small" onclick="addStudent(${i})">👩‍🎓 افزودن دانش‌آموز</button>
-          <div class="section"><h4>جزوه‌ها:</h4>${renderItems(course.notes, i, "note")}</div>
-          <div class="section"><h4>آزمون‌ها:</h4>${renderExams(course.exams, i)}</div>
-          <div class="section"><h4>دانش‌آموزان:</h4>${course.students.map(s => "👩‍🎓 " + s).join("<br>")}</div>`;
+
+        // بخش افزودن جزوه و آزمون
+        const controls = document.createElement("div");
+        controls.className = "row";
+
+        const addNoteBtn = document.createElement("button");
+        addNoteBtn.textContent = "📄 افزودن جزوه";
+        addNoteBtn.addEventListener("click", () => {
+          const text = prompt("عنوان جزوه:");
+          const file = prompt("لینک فایل جزوه (مثلاً files/math.pdf):");
+          if(text && file) {
+            courses[i].notes.push({ text, file, visible: true });
+            saveCourses(courses);
+            renderCourses();
+          }
+        });
+
+        const addExamBtn = document.createElement("button");
+        addExamBtn.textContent = "📝 افزودن آزمون";
+        addExamBtn.addEventListener("click", () => {
+          const title = prompt("عنوان آزمون:");
+          if(!title) return;
+          const qCount = parseInt(prompt("تعداد سوالات چندگزینه‌ای؟ (مثلاً 1 یا 3)"), 10);
+          if(isNaN(qCount) || qCount < 1) return;
+          const questions = [];
+          for(let k=0; k<qCount; k++){
+            const q = prompt(`سوال ${k+1}:`);
+            const optA = prompt("گزینه ۱:");
+            const optB = prompt("گزینه ۲:");
+            const correct = prompt("پاسخ درست (گزینه را دقیق بنویس):");
+            if(q && optA && optB && correct) {
+              questions.push({ q, options: [optA, optB], answer: correct });
+            }
+          }
+          courses[i].exams.push({ text: title, visible: true, questions });
+          saveCourses(courses);
+          renderCourses();
+        });
+
+        controls.appendChild(addNoteBtn);
+        controls.appendChild(addExamBtn);
+
+        // لیست جزوه‌ها
+        const notesHeader = document.createElement("h4");
+        notesHeader.textContent = "جزوه‌ها:";
+        const notesList = document.createElement("div");
+        c.notes.forEach((n, j) => {
+          const item = document.createElement("div");
+          item.className = "item " + (n.visible ? "" : "hiddenItem");
+          item.innerHTML = `${n.text} — <a href="${n.file}" target="_blank">دانلود</a>`;
+          const toggleBtn = document.createElement("button");
+          toggleBtn.textContent = "👁";
+          toggleBtn.addEventListener("click", () => {
+            courses[i].notes[j].visible = !courses[i].notes[j].visible;
+            saveCourses(courses);
+            renderCourses();
+          });
+          item.appendChild(toggleBtn);
+          notesList.appendChild(item);
+        });
+
+        // لیست آزمون‌ها
+        const examsHeader = document.createElement("h4");
+        examsHeader.textContent = "آزمون‌ها:";
+        const examsList = document.createElement("div");
+        c.exams.forEach((e, j) => {
+          const item = document.createElement("div");
+          item.className = "item " + (e.visible ? "" : "hiddenItem");
+          item.textContent = e.text;
+          const toggleBtn = document.createElement("button");
+          toggleBtn.textContent = "👁";
+          toggleBtn.addEventListener("click", () => {
+            courses[i].exams[j].visible = !courses[i].exams[j].visible;
+            saveCourses(courses);
+            renderCourses();
+          });
+          item.appendChild(toggleBtn);
+          examsList.appendChild(item);
+        });
+
+        const title = document.createElement("h3");
+        title.textContent = c.name;
+        div.appendChild(title);
+        div.appendChild(controls);
+        div.appendChild(notesHeader);
+        div.appendChild(notesList);
+        div.appendChild(examsHeader);
+        div.appendChild(examsList);
         container.appendChild(div);
       });
     }
 
-    function renderItems(items, courseIndex, type) {
-      return items.map((item, j) => {
-        let cls = item.visible ? "item" : "item hidden";
-        let status = item.visible ? "✅ قابل مشاهده" : "❌ مخفی";
-        return `<div class="${cls}">
-                  ${item.text} - ${status}
-                  <button class="small" onclick="toggleVisibility('${type}', ${courseIndex}, ${j})">👁 تغییر وضعیت</button>
-                </div>`;
-      }).join("");
+    // دانش‌آموز: تازه‌سازی
+    document.getElementById("refreshStudentBtn").addEventListener("click", renderStudentView);
+
+    // دانش‌آموز: رندر دید دانش‌آموز
+    function renderStudentView() {
+      courses = loadCourses(); // همیشه آخرین داده‌ها را بگیر
+      const container = document.getElementById("studentCourses");
+      container.innerHTML = "";
+      courses.forEach((c, i) => {
+        const div = document.createElement("div");
+        div.className = "course";
+        const title = document.createElement("h3");
+        title.textContent = c.name;
+
+        // جزوه‌های قابل مشاهده
+        const notesHeader = document.createElement("h4");
+        notesHeader.textContent = "جزوه‌ها:";
+        const notesList = document.createElement("div");
+        c.notes.filter(n => n.visible).forEach(n => {
+          const item = document.createElement("div");
+          item.className = "item";
+          item.innerHTML = `📄 <a href="${n.file}" target="_blank">${n.text}</a>`;
+          notesList.appendChild(item);
+        });
+
+        // آزمون‌های قابل مشاهده
+        const examsHeader = document.createElement("h4");
+        examsHeader.textContent = "آزمون‌ها:";
+        const examsList = document.createElement("div");
+        c.exams.filter(e => e.visible).forEach((e, j) => {
+          const item = document.createElement("div");
+          item.className = "item";
+          const startBtn = document.createElement("button");
+          startBtn.textContent = "شروع آزمون";
+          startBtn.addEventListener("click", () => takeExam(e.questions));
+          item.textContent = "📝 " + e.text + " ";
+          item.appendChild(startBtn);
+          examsList.appendChild(item);
+        });
+
+        div.appendChild(title);
+        div.appendChild(notesHeader);
+        div.appendChild(notesList);
+        div.appendChild(examsHeader);
+        div.appendChild(examsList);
+        container.appendChild(div);
+      });
     }
 
-    function renderExams(exams, courseIndex) {
-      return exams.map((exam, j) => {
-        let cls = exam.visible ? "item" : "item hidden";
-        let status = exam.visible ? "✅ قابل مشاهده" : "❌ مخفی";
-        let grades = Object.entries(exam.grades).map(([s,g]) => `${s}: ${g}`).join("<br>");
-        return `<div class="${cls}">
-                  ${exam.text} - ${status}
-                  <button class="small" onclick="toggleVisibility('exam', ${courseIndex}, ${j})">👁 تغییر وضعیت</button>
-                  <button class="small" onclick="gradeStudent(${courseIndex}, ${j})">✏️ ثبت نمره</button>
-                  <div><strong>نمرات:</strong><br>${grades || "هنوز نمره‌ای ثبت نشده"}</div>
-                </div>`;
-      }).join("");
+    // برگزاری آزمون ساده
+    function takeExam(questions) {
+      let score = 0;
+      questions.forEach(q => {
+        const ans = prompt(q.q + "\nگزینه‌ها: " + q.options.join(" | "));
+        if(ans && ans.trim() === q.answer) score++;
+      });
+      alert("نمره شما: " + score + "/" + questions.length);
     }
   </script>
 <script type="text/javascript" src="js/script.js"></script>
