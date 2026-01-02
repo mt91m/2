@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>سامانه آموزش مجازی</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; margin: 0; background: #f5f5f5; direction: rtl; }
+    header { background: #2c3e50; color: white; padding: 15px; text-align: center; }
+    nav { background: #34495e; padding: 10px; text-align: center; }
+    nav button { margin: 5px; padding: 10px 15px; border: none; background: #e67e22; color: white; border-radius: 5px; cursor: pointer; }
+    nav button:hover { background: #d35400; }
+    .container { margin: 20px; }
+    .course { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .section { margin-top: 10px; }
+    .item { border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; }
+    .hidden { background: #f8d7da; color: #721c24; }
+    input { padding: 8px; margin: 5px; width: 70%; }
+    button.small { padding: 5px 10px; font-size: 12px; margin: 2px; }
+  </style>
+ <link type="text/css" rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <header>
+    <h1>سامانه آموزش مجازی مدارس</h1>
+    <p>مدیریت درس‌ها، جزوه‌ها، آزمون‌ها و دانش‌آموزان</p>
+  </header>
+
+  <div class="container">
+    <h2>ایجاد درس جدید</h2>
+    <input id="courseName" placeholder="نام درس">
+    <button onclick="addCourse()">➕ افزودن درس</button>
+    <div id="courseList"></div>
+  </div>
+
+  <script>
+    let courses = [];
+
+    function addCourse() {
+      let name = document.getElementById("courseName").value;
+      if(name) {
+        let course = { name: name, notes: [], exams: [], students: [] };
+        courses.push(course);
+        renderCourses();
+        document.getElementById("courseName").value = "";
+      }
+    }
+
+    function addNote(index) {
+      let text = prompt("متن جزوه را وارد کنید:");
+      if(text) {
+        courses[index].notes.push({ text: text, visible: true });
+        renderCourses();
+      }
+    }
+
+    function addExam(index) {
+      let text = prompt("عنوان آزمون را وارد کنید:");
+      if(text) {
+        courses[index].exams.push({ text: text, visible: true, grades: {} });
+        renderCourses();
+      }
+    }
+
+    function addStudent(index) {
+      let name = prompt("نام دانش‌آموز را وارد کنید:");
+      if(name) {
+        courses[index].students.push(name);
+        renderCourses();
+      }
+    }
+
+    function toggleVisibility(type, courseIndex, itemIndex) {
+      let item = (type === "note") ? courses[courseIndex].notes[itemIndex] : courses[courseIndex].exams[itemIndex];
+      item.visible = !item.visible;
+      renderCourses();
+    }
+
+    function gradeStudent(courseIndex, examIndex) {
+      let exam = courses[courseIndex].exams[examIndex];
+      let student = prompt("نام دانش‌آموز برای ثبت نمره:");
+      if(student && courses[courseIndex].students.includes(student)) {
+        let grade = prompt("نمره‌ی " + student + " را وارد کنید:");
+        exam.grades[student] = grade;
+        renderCourses();
+      } else {
+        alert("این دانش‌آموز در این درس ثبت نشده است.");
+      }
+    }
+
+    function renderCourses() {
+      let container = document.getElementById("courseList");
+      container.innerHTML = "";
+      courses.forEach((course, i) => {
+        let div = document.createElement("div");
+        div.className = "course";
+        div.innerHTML = `<h3>📘 ${course.name}</h3>
+          <button class="small" onclick="addNote(${i})">➕ افزودن جزوه</button>
+          <button class="small" onclick="addExam(${i})">📝 افزودن آزمون</button>
+          <button class="small" onclick="addStudent(${i})">👩‍🎓 افزودن دانش‌آموز</button>
+          <div class="section"><h4>جزوه‌ها:</h4>${renderItems(course.notes, i, "note")}</div>
+          <div class="section"><h4>آزمون‌ها:</h4>${renderExams(course.exams, i)}</div>
+          <div class="section"><h4>دانش‌آموزان:</h4>${course.students.map(s => "👩‍🎓 " + s).join("<br>")}</div>`;
+        container.appendChild(div);
+      });
+    }
+
+    function renderItems(items, courseIndex, type) {
+      return items.map((item, j) => {
+        let cls = item.visible ? "item" : "item hidden";
+        let status = item.visible ? "✅ قابل مشاهده" : "❌ مخفی";
+        return `<div class="${cls}">
+                  ${item.text} - ${status}
+                  <button class="small" onclick="toggleVisibility('${type}', ${courseIndex}, ${j})">👁 تغییر وضعیت</button>
+                </div>`;
+      }).join("");
+    }
+
+    function renderExams(exams, courseIndex) {
+      return exams.map((exam, j) => {
+        let cls = exam.visible ? "item" : "item hidden";
+        let status = exam.visible ? "✅ قابل مشاهده" : "❌ مخفی";
+        let grades = Object.entries(exam.grades).map(([s,g]) => `${s}: ${g}`).join("<br>");
+        return `<div class="${cls}">
+                  ${exam.text} - ${status}
+                  <button class="small" onclick="toggleVisibility('exam', ${courseIndex}, ${j})">👁 تغییر وضعیت</button>
+                  <button class="small" onclick="gradeStudent(${courseIndex}, ${j})">✏️ ثبت نمره</button>
+                  <div><strong>نمرات:</strong><br>${grades || "هنوز نمره‌ای ثبت نشده"}</div>
+                </div>`;
+      }).join("");
+    }
+  </script>
+<script type="text/javascript" src="js/script.js"></script>
+<!-- این فایل توسط ادیتور آنلاین وبسایت آموزشی فری لرن ایجاد شده است -->
+<!-- https://Free-Learn.Ir/ -->
+</body>
+</html>
